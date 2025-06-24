@@ -1,5 +1,31 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>自由贩卖机</title><link>https://Mon3t4r.github.io</link><description>Noting Right，Noting Left</description><copyright>自由贩卖机</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/98069164?v=4</url><title>avatar</title><link>https://Mon3t4r.github.io</link></image><lastBuildDate>Tue, 24 Jun 2025 02:56:59 +0000</lastBuildDate><managingEditor>自由贩卖机</managingEditor><ttl>60</ttl><webMaster>自由贩卖机</webMaster><item><title>Linux cred 结构体及其在提权中的利用</title><link>https://Mon3t4r.github.io/post/Linux%20cred%20-jie-gou-ti-ji-qi-zai-ti-quan-zhong-de-li-yong.html</link><description>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>自由贩卖机</title><link>https://Mon3t4r.github.io</link><description>Noting Right，Noting Left</description><copyright>自由贩卖机</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/98069164?v=4</url><title>avatar</title><link>https://Mon3t4r.github.io</link></image><lastBuildDate>Tue, 24 Jun 2025 03:05:29 +0000</lastBuildDate><managingEditor>自由贩卖机</managingEditor><ttl>60</ttl><webMaster>自由贩卖机</webMaster><item><title>cred 提权 LKM</title><link>https://Mon3t4r.github.io/post/cred%20-ti-quan-%20LKM.html</link><description>安装内核头文件：
+
+```Bash
+
+sudo apt update
+sudo apt install linux-headers-$(uname -r)
+
+
+sudo dnf install kernel-devel
+```
+
+编译
+```bash
+make
+```
+使用
+```bash
+sudo insmod ko_cred_tamper.ko # 安装模块
+echo 'test' &gt; /proc/elevate_shell #往 /proc/elevate_shell写任意信息实现提权
+sudo rmmod ko_cred_tamper.ko #卸载模块
+dmesg -T | grep ko_cred_tamper # 查看内核模块日志
+```
+
+工作流程如下：
+1. 模块加载 (insmod ko_cred_tamper.ko)  
+- 初始化函数 ko_cred_tamper_init 执行
+    - 在 /proc 文件系统下创建文件 elevate_shell（权限 0666，所有用户可读写）。</description><guid isPermaLink="true">https://Mon3t4r.github.io/post/cred%20-ti-quan-%20LKM.html</guid><pubDate>Tue, 24 Jun 2025 03:05:01 +0000</pubDate></item><item><title>Linux cred 结构体及其在提权中的利用</title><link>https://Mon3t4r.github.io/post/Linux%20cred%20-jie-gou-ti-ji-qi-zai-ti-quan-zhong-de-li-yong.html</link><description>
 Gemini 2.5 Pro DeepResearch
 # **权力的核心：深入解析 Linux cred 结构体及其在提权中的利用**
 
