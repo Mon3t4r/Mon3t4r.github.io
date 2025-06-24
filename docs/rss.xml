@@ -1,5 +1,13 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>自由贩卖机</title><link>https://Mon3t4r.github.io</link><description>Noting Right，Noting Left</description><copyright>自由贩卖机</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/98069164?v=4</url><title>avatar</title><link>https://Mon3t4r.github.io</link></image><lastBuildDate>Tue, 24 Jun 2025 03:07:47 +0000</lastBuildDate><managingEditor>自由贩卖机</managingEditor><ttl>60</ttl><webMaster>自由贩卖机</webMaster><item><title>cred 提权 LKM</title><link>https://Mon3t4r.github.io/post/cred%20-ti-quan-%20LKM.html</link><description>测试环境  6.6.0-38-generic ARM 架构
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>自由贩卖机</title><link>https://Mon3t4r.github.io</link><description>Noting Right，Noting Left</description><copyright>自由贩卖机</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/98069164?v=4</url><title>avatar</title><link>https://Mon3t4r.github.io</link></image><lastBuildDate>Tue, 24 Jun 2025 03:19:25 +0000</lastBuildDate><managingEditor>自由贩卖机</managingEditor><ttl>60</ttl><webMaster>自由贩卖机</webMaster><item><title>SMAP/SMEP/KPTI 防护机制分析</title><link>https://Mon3t4r.github.io/post/SMAP-SMEP-KPTI%20-fang-hu-ji-zhi-fen-xi.html</link><description>
+
+# **现代内核保护机制综合分析：SMEP、SMAP 与 KPTI**
+
+## **引言**
+
+### **内核作为可信计算基石（TCB）**
+
+在现代计算系统中，操作系统内核构成了可信计算基石（Trusted Computing Base, TCB）。</description><guid isPermaLink="true">https://Mon3t4r.github.io/post/SMAP-SMEP-KPTI%20-fang-hu-ji-zhi-fen-xi.html</guid><pubDate>Tue, 24 Jun 2025 03:19:00 +0000</pubDate></item><item><title>cred 提权 LKM</title><link>https://Mon3t4r.github.io/post/cred%20-ti-quan-%20LKM.html</link><description>测试环境  6.6.0-38-generic ARM 架构
 安装内核头文件：
 
 ```Bash
