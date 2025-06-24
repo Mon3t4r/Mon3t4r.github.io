@@ -1,2 +1,8 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>自由贩卖机</title><link>https://Mon3t4r.github.io</link><description>Noting Right，Noting Left</description><copyright>自由贩卖机</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://github.githubassets.com/favicons/favicon.svg</url><title>avatar</title><link>https://Mon3t4r.github.io</link></image><lastBuildDate>Fri, 13 Jun 2025 16:10:40 +0000</lastBuildDate><managingEditor>自由贩卖机</managingEditor><ttl>60</ttl><webMaster>自由贩卖机</webMaster></channel></rss>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>自由贩卖机</title><link>https://Mon3t4r.github.io</link><description>Noting Right，Noting Left</description><copyright>自由贩卖机</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/98069164?v=4</url><title>avatar</title><link>https://Mon3t4r.github.io</link></image><lastBuildDate>Tue, 24 Jun 2025 02:56:59 +0000</lastBuildDate><managingEditor>自由贩卖机</managingEditor><ttl>60</ttl><webMaster>自由贩卖机</webMaster><item><title>Linux cred 结构体及其在提权中的利用</title><link>https://Mon3t4r.github.io/post/Linux%20cred%20-jie-gou-ti-ji-qi-zai-ti-quan-zhong-de-li-yong.html</link><description>
+Gemini 2.5 Pro DeepResearch
+# **权力的核心：深入解析 Linux cred 结构体及其在提权中的利用**
+
+## **一. 引言：Linux 内核中的权力中枢**
+
+在 Linux 的安全模型中，一个进程的身份即是其权力的体现。</description><guid isPermaLink="true">https://Mon3t4r.github.io/post/Linux%20cred%20-jie-gou-ti-ji-qi-zai-ti-quan-zhong-de-li-yong.html</guid><pubDate>Tue, 24 Jun 2025 02:48:50 +0000</pubDate></item></channel></rss>

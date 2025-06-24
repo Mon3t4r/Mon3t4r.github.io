@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
+    
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/98069164?v=4"><script>
+        let theme = localStorage.getItem("meek_theme") || "light";
+        document.documentElement.setAttribute("data-color-mode", theme);
+    </script>
+<meta name="description" content="
+Gemini 2.5 Pro DeepResearch
+# **权力的核心：深入解析 Linux cred 结构体及其在提权中的利用**
+
+## **一. 引言：Linux 内核中的权力中枢**
+
+在 Linux 的安全模型中，一个进程的身份即是其权力的体现。">
+<meta property="og:title" content="Linux cred 结构体及其在提权中的利用">
+<meta property="og:description" content="
+Gemini 2.5 Pro DeepResearch
+# **权力的核心：深入解析 Linux cred 结构体及其在提权中的利用**
+
+## **一. 引言：Linux 内核中的权力中枢**
+
+在 Linux 的安全模型中，一个进程的身份即是其权力的体现。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://Mon3t4r.github.io/post/Linux%20cred%20-jie-gou-ti-ji-qi-zai-ti-quan-zhong-de-li-yong.html">
+<meta property="og:image" content="https://avatars.githubusercontent.com/u/98069164?v=4">
+<title>Linux cred 结构体及其在提权中的利用</title>
+
+
+
+</head>
+<style>
+body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;padding: 45px;font-size: 16px;font-family: sans-serif;line-height: 1.25;}
+#header{display:flex;padding-bottom:8px;border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted));margin-bottom: 16px;}
+#footer {margin-top:64px; text-align: center;font-size: small;}
+
+</style>
+
+<style>
+.postTitle{margin: auto 0;font-size:40px;font-weight:bold;}
+.title-right{display:flex;margin:auto 0 0 auto;}
+.title-right .circle{padding: 14px 16px;margin-right:8px;}
+#postBody{border-bottom: 1px solid var(--color-border-default);padding-bottom:36px;}
+#postBody hr{height:2px;}
+#cmButton{height:48px;margin-top:48px;}
+#comments{margin-top:64px;}
+.g-emoji{font-size:24px;}
+@media (max-width: 600px) {
+    body {padding: 8px;}
+    .postTitle{font-size:24px;}
+}
+
+</style>
+
+
+
+
+<body>
+    <div id="header">
+<h1 class="postTitle">Linux cred 结构体及其在提权中的利用</h1>
+<div class="title-right">
+    <a href="https://Mon3t4r.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathHome" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+    <a href="https://github.com/Mon3t4r/Mon3t4r.github.io/issues/1" target="_blank" class="btn btn-invisible circle" title="Issue">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathIssue" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+
+    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="切换主题">
+        <svg class="octicon" width="16" height="16" >
+            <path id="themeSwitch" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+
+</div>
+</div>
+    <div id="content">
+<div class="markdown-body" id="postBody"><p>Gemini 2.5 Pro DeepResearch</p>
+<h1><strong>权力的核心：深入解析 Linux cred 结构体及其在提权中的利用</strong></h1>
+<h2><strong>一. 引言：Linux 内核中的权力中枢</strong></h2>
+<p>在 Linux 的安全模型中，一个进程的身份即是其权力的体现。本报告的核心论点是，struct cred 是 Linux 内核中用于封装此身份的权威数据结构。它不仅仅是标识符的集合，更是进程权力的根本来源。因此，对于已经获得内核空间初步立足点的攻击者而言，破坏或替换其进程的 cred 结构体，是获取系统最终控制权（即 root 权限）最直接、最明确的路径。</p>
+<p>我们可以将 cred 结构体视为一个进程的“皇冠上的宝石”。几乎所有内核内的提权攻击，其最终目的都是为了实现以下三者之一：夺取这些宝石（替换 cred 指针）、伪造它们（覆写 cred 内容），或者欺骗内核授予一套全新的、合法的皇家珠宝（例如，通过调用 commit_creds）。</p>
+<p>这种设计将特权集中到一个定义明确的单一结构中，是一把双刃剑。一方面，它简化了内核的访问控制逻辑；另一方面，它也为攻击者创造了一个高价值的、可被利用的单点故障。内核需要一种一致的方式来检查进程的每一个动作（如打开文件、发送信号）的权限 1。与其向每个安全检查函数传递数十个参数（如 UID、GID、能力等），内核将它们整合到由</p>
+<p>task_struct 指向的单一 struct cred 中，这既高效又使安全模型标准化。然而，这一设计决策意味着，如果攻击者能够控制这个指针或其指向的数据，他们就能同时控制进程身份的<em>所有</em>方面。因此，一次成功的、针对 cred 的内存破坏，可以瞬间将一个非特权进程转变为超级用户，一次性绕过所有细粒度的权限检查。这使得它成为比逐个击破单个安全机制远为诱人的目标，也解释了为何几乎所有现代内核提权漏洞利用的最终目的都是以某种方式修改 cred 结构体。</p>
+<p>本报告将系统性地剖析这一主题，首先从 cred 的解剖学结构入手，进而探讨其合法的管理机制，然后深入研究用于颠覆它的对抗性技术，通过分析真实世界的 CVE 案例来揭示攻击手法，并讨论内核的防御策略，最后以战略性洞见收尾。</p>
+<h2><strong>二. 解构 struct cred：Linux 进程身份的解剖学</strong></h2>
+<h3><strong>A. cred 结构体：定义与核心字段</strong></h3>
+<p>struct cred 定义于内核头文件 cred.h 中，是 Linux 内核安全体系的基石。系统中的每一个进程（由 task_struct 结构体表示）都包含一个指向其自身 cred 结构体的指针，该结构体囊括了做出所有安全决策所需的全部信息。通过使用 Bootlin Elixir 等代码交叉引用工具，研究人员可以方便地在内核源码树中定位这些定义，从而进行深入探索。</p>
+<p>为了理解攻击者试图修改的<em>内容</em>，以下表格详细列出了 cred 结构体中最关键的字段及其在 Linux 安全模型中的作用和重要性。</p>
+<p><strong>表 1：struct cred 的关键字段</strong></p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th align="left">字段</th>
+<th align="left">类型</th>
+<th align="left">来源</th>
+<th align="left">描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">usage</td>
+<td align="left">atomic_t</td>
+<td align="left">S2</td>
+<td align="left">引用计数器。只有当此计数值降至零时，该结构体才会被释放。</td>
+</tr>
+<tr>
+<td align="left">uid, gid</td>
+<td align="left">kuid_t, kgid_t</td>
+<td align="left">S2</td>
+<td align="left"><strong>真实用户/组 ID：</strong> 标识拥有该进程的实际用户。主要用于进程所有权和信号发送权限的判断。</td>
+</tr>
+<tr>
+<td align="left">suid, sgid</td>
+<td align="left">kuid_t, kgid_t</td>
+<td align="left">S2</td>
+<td align="left"><strong>保存的用户/组 ID：</strong> 用于在进程的有效 ID 临时改变时存储其原始值，以便后续恢复。对 setuid 程序的正常运作至关重要。</td>
+</tr>
+<tr>
+<td align="left">euid, egid</td>
+<td align="left">kuid_t, kgid_t</td>
+<td align="left">S2</td>
+<td align="left"><strong>有效用户/组 ID：</strong> 内核在进行大多数权限检查时使用的主要 ID。对于普通进程，euid 与 uid 相同。对于 setuid-root 程序，euid 为 0。这是攻击者的首要目标。</td>
+</tr>
+<tr>
+<td align="left">fsuid, fsgid</td>
+<td align="left">kuid_t, kgid_t</td>
+<td align="left">S2</td>
+<td align="left"><strong>文件系统用户/组 ID：</strong> 专门用于文件系统访问检查。在现代内核中，此值主要与 euid 同步，但其存在代表了访问控制的一个历史层次。</td>
+</tr>
+<tr>
+<td align="left">group_info</td>
+<td align="left">struct group_info*</td>
+<td align="left">S2</td>
+<td align="left">指向一个结构体的指针，该结构体包含进程所属的附加组列表。</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<h3><strong>B. 超越 UID：Linux 能力（Capabilities）的力量</strong></h3>
+<p>在 Linux 内核 2.2 版本之前，权限模型是二元的：进程要么是 root（UID 为 0），拥有所有权限；要么不是，受到严格限制。为了实现更精细的权限控制，Linux 引入了“能力（Capabilities）”系统，将传统上与 root 用户绑定的、无所不能的权力分解为近 40 个独立的、可管理的权限单元。通过这种方式，系统可以仅授予一个进程完成其任务所必需的特定权限（例如，赋予 CAP_NET_ADMIN 以配置网络），而无需给予其完整的 root 访问权限，这体现了最小权限原则。</p>
+<p>这一概念与 cred 结构体紧密相连，其权限由以下几个关键字段定义 2：</p>
+<ul>
+<li>cap_permitted：进程<em>允许</em>拥有的所有能力的集合。</li>
+<li>cap_effective：当前用于权限检查的、已生效的能力集合。这是攻击者最希望修改的集合。</li>
+<li>cap_inheritable：在执行 execve 系统调用后，新程序可以继承的能力集合。</li>
+<li>cap_bset（Bounding Set）：定义了该进程及其子进程所能拥有的能力的上限。</li>
+</ul>
+<p>系统管理员可以使用 getcap 和 getpcaps 等工具来分别检查文件和运行中进程的能力。一个经典的例子是 ping 命令，它需要 CAP_NET_RAW 能力来创建原始套接字，但不需要完整的 root 权限。</p>
+<p>能力系统虽然为安全加固而设计，却也无意中创造了一个更复杂、更细微的攻击面。攻击者不再总是需要成为 UID 0；获得一个强大的单一能力可能就足以达到目的。这种转变源于最小权限原则的推行，它避免了向系统服务授予完整的 root 权限。然而，这也分散了“特权”的定义。攻击者现在有了多条通往目标的路径，除了传统的 UID 0，他们还可以瞄准 CAP_SYS_ADMIN、CAP_DAC_OVERRIDE 等高权限能力。这在容器化环境中尤为重要。一个容器可能以“root”（在其命名空间内的 UID 0）身份运行，但其能力集却受到严格限制。一个成功的容器逃逸漏洞可能不会直接赋予攻击者宿主机的 root 权限，但可能会授予其额外的能力，这些能力随后可被串联利用以实现完全的权限提升。因此，安全模型不再是简单的 root 与 non-root 的二元对立，而是一个复杂的能力图谱，攻击者可以在这个图谱中寻找路径。</p>
+<p><strong>表 2：提权中具有高影响力的 Linux 能力</strong></p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th align="left">能力</th>
+<th align="left">来源</th>
+<th align="left">描述与利用价值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">CAP_SYS_ADMIN</td>
+<td align="left">S4</td>
+<td align="left">“上帝”能力。授予大量系统管理权限，实际上等同于 root，常被称为“新 root”。</td>
+</tr>
+<tr>
+<td align="left">CAP_DAC_OVERRIDE</td>
+<td align="left">S4</td>
+<td align="left">绕过所有自主访问控制（DAC）检查。允许进程读、写、执行系统上的任何文件，无视其权限设置。</td>
+</tr>
+<tr>
+<td align="left">CAP_CHOWN</td>
+<td align="left">S3, S4</td>
+<td align="left">允许更改任何文件的用户和组所有权。可用于获取对 /etc/shadow 等关键系统文件的控制权。</td>
+</tr>
+<tr>
+<td align="left">CAP_SETUID / CAP_SETGID</td>
+<td align="left">S4</td>
+<td align="left">允许进程操纵其 UID/GID，从而可以有效地成为任何用户，包括 root。</td>
+</tr>
+<tr>
+<td align="left">CAP_SYS_MODULE</td>
+<td align="left">(由 S3 推断)</td>
+<td align="left">允许加载和卸载内核模块。攻击者可利用此能力加载恶意的内核模块。</td>
+</tr>
+<tr>
+<td align="left">CAP_SYS_PTRACE</td>
+<td align="left">(由 S11 推断)</td>
+<td align="left">允许使用 ptrace 跟踪任意进程。可用于劫持其他进程，包括特权进程。</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<h2><strong>三. 不可变性原则：合法的凭证管理</strong></h2>
+<h3><strong>A. “复制并替换”的信条</strong></h3>
+<p>内核安全的一个核心设计原则是：cred 结构体一旦被提交（即公开），就被认为是不可变的。这意味着不能简单地获取一个指向当前进程 cred 的指针然后直接修改其字段。为了改变凭证，内核必须遵循“复制并替换”（copy-and-replace）的方法论：首先分配一个新的 cred 结构体，复制旧结构体的内容，修改这个新的副本，然后原子性地将当前进程的 current-&gt;cred 指针交换为指向新结构体 1。这样做是为了防止竞态条件，并确保对安全敏感的数据结构的操作是原子性的，不会使其处于短暂的、不一致的状态。</p>
+<h3><strong>B. 神圣三位一体：prepare_creds()、commit_creds() 和 abort_creds()</strong></h3>
+<p>内核内部提供了一套 API 来安全地管理凭证变更，这套 API 由三个核心函数组成：</p>
+<ul>
+<li><strong>prepare_creds()</strong>：这是凭证变更的第一步。它会分配一个新的 cred 结构体，并将当前进程的凭证复制到其中。同时，它会获取一个互斥锁 (cred_replace_mutex)，以防止在敏感的修改过程中受到 ptrace 等工具的干扰。</li>
+<li><strong>commit_creds()</strong>：这是最后一步。此函数将新准备好的凭证应用到当前任务。它会触发 Linux 安全模块（LSM）进行安全检查，然后使用 rcu_assign_pointer() 原子性地更新 current-&gt;cred 指针，最后释放互斥锁。值得注意的是，此函数会“消耗”掉调用者对新 cred 的引用，意味着调用者之后不应再对其调用 put_cred() 来释放它。</li>
+<li><strong>abort_creds()</strong>：这是失败路径。如果在调用 prepare_creds() 之后、commit_creds() 之前发生任何错误，就应调用此函数。它会释放新分配的 cred 结构体并解锁互斥锁。</li>
+</ul>
+<h3><strong>C. 攻击者的黄金入场券：commit_creds(prepare_kernel_cred(0))</strong></h3>
+<p>本节的高潮在于揭示一个关键函数序列。prepare_kernel_cred(0) 是一个特殊的内核函数，当以 NULL 或 0 作为参数调用时，它会准备一个全新的凭证结构体，该结构体属于 init 任务——即系统中的第一个进程，拥有完整的 root 权限（UID 0、GID 0、所有能力）。</p>
+<p>因此，commit_creds(prepare_kernel_cred(0)) 这个序列，正是内核自身用于让一个内核空间实体赋予自己完整 root 权限的、规范的、合法的方式。对于任何已经获得内核执行流控制权的攻击者来说，这个序列就成了他们的终极目标。他们的任务就是想方设法劫持 CPU，去执行这段现成的代码。</p>
+<p>内核为安全管理凭证而设计的机制，矛盾地为攻击者创造了完美的、预先打包好的“漏洞利用载荷”。commit_creds(prepare_kernel_cred(0)) 的存在意味着攻击者无需费力地编写复杂的 Shellcode 来手动修改 cred 结构体；他们只需要找到一种方法来调用这两个现有的函数。内核需要一种合法的方式来创建新的、拥有完全特权的进程（例如在系统启动期间），或者让内核线程执行特权操作。prepare_kernel_cred(0) 和 commit_creds() 函数正是为此提供了必要的内部 API。这个 API 健壮、经过良好测试，并且保证在不同内核版本间都能正常工作。从攻击者的角度看，一旦他们通过漏洞获得了内核代码执行能力（例如，控制了指令指针），为何还要采用一种脆弱的、手动的、可能因内核微小更新而失效的方法去内存中寻找 cred 结构并覆写其字段呢？相比之下，找到 prepare_kernel_cred 和 commit_creds 函数的地址（可通过 KASLR 泄露实现），然后构建一个 ROP 链来依次调用它们，是一种远为可靠和优雅的方案。因此，这个专为安全的内部权限管理而设计的机制，本身却成为了漏洞利用中最受觊觎的目标，这种现象可称为内核空间的“就地取材”（Living off the Land）。</p>
+<h2><strong>四. 攻击者的博弈：颠覆 cred 实现提权</strong></h2>
+<h3><strong>A. 入口点：内核漏洞的前提条件</strong></h3>
+<p>必须强调的是，cred 操纵是提权的<em>载荷</em>，而非漏洞本身。攻击者必须首先发现并利用一个独立的漏洞，才能在内核的地址空间内获得立足点。</p>
+<p><strong>释放后使用（Use-After-Free, UAF）作为典型漏洞</strong>：UAF 是一种常见的内存损坏漏洞。其过程包括：程序分配一块内存，随后释放它，但仍然保留着一个指向该已释放内存的“悬垂指针”。当程序后续通过这个悬垂指针访问内存时，它实际上访问的是一块可能已被重新分配用于其他目的的内存，这会导致数据损坏或控制流劫持。UAF 是一个强大的原语，因为它通常可以被转化为任意地址写或任意地址释放的能力，为后续的漏洞利用铺平道路。</p>
+<h3><strong>B. 技术一：直接操纵与基于 ROP 的提权</strong></h3>
+<ul>
+<li><strong>方法一：对 cred 的任意写</strong>：这是最直接、“经典”的方法。如果一个漏洞赋予攻击者一个“任意地址写任意值”的原语，他们可以：
+<ol>
+<li>找到自己进程 task_struct 的地址。</li>
+<li>由此找到其指向的 cred 结构体的地址。</li>
+<li>使用任意写原语，将 cred 中的 uid、gid、euid、egid 等字段覆写为 0。这是一种直接、粗暴的成为 root 的方式。</li>
+</ol>
+</li>
+<li><strong>方法二：基于 ROP 调用 commit_creds</strong>：当可以实现控制流劫持时，这是一种更现代、更可靠的方法。
+<ol>
+<li>攻击者利用漏洞覆写内核栈上的返回地址。</li>
+<li>他们不将返回地址指向 Shellcode（这会被 SMEP 阻止），而是指向一个“ROP 小工具（gadget）”——这是一段存在于内核代码中、以 ret 指令结尾的短小指令序列。</li>
+<li>通过将这些小工具链接在一起，攻击者可以执行简单的操作，比如将值加载到寄存器中。</li>
+<li>ROP 链的最终目标是设置参数并调用 commit_creds(prepare_kernel_cred(0))。这完全绕过了手动查找和写入 cred 结构体的需要。</li>
+</ol>
+</li>
+</ul>
+<h3><strong>C. 技术二（案例研究）- DirtyCred (<a title="CVE-2021-4154" data-hovercard-type="advisory" data-hovercard-url="/advisories/GHSA-qvm5-4fh7-hcfx/hovercard" href="https://github.com/advisories/GHSA-qvm5-4fh7-hcfx">CVE-2021-4154</a>)：在堆上交换身份</strong></h3>
+<p>DirtyCred 是一种颠覆性的、纯数据的利用技术，它利用了内核堆分配器的弱点，而非特定的代码逻辑错误。</p>
+<ul>
+<li><strong>机制</strong>：
+<ol>
+<li>攻击者找到一个 UAF 漏洞，该漏洞允许他们在释放一个特权内核对象（例如，一个指向 root 用户所有文件的 file 结构体，甚至是一个 cred 结构体）后，仍然持有一个对它的引用。</li>
+<li>攻击者触发“堆喷射”，大量申请分配内容可控的对象（例如，使用 msg_msg 系统调用）。其目的是让其中一个由攻击者控制的对象占据刚刚被释放的特权对象的内存槽位。</li>
+<li>此时，攻击者拥有一个悬垂指针，内核<em>认为</em>它指向一个特权对象，但它<em>实际上</em>指向一个由攻击者控制的对象。</li>
+<li>在 cred 交换变体中，攻击者可以欺骗内核使用一个伪造的、授予 root 权限的 cred 对象。在 file 交换变体中（如 <a title="CVE-2021-4154" data-hovercard-type="advisory" data-hovercard-url="/advisories/GHSA-qvm5-4fh7-hcfx/hovercard" href="https://github.com/advisories/GHSA-qvm5-4fh7-hcfx">CVE-2021-4154</a> 的 PoC 所用），他们将一个正在向低权限文件写入的进程的 file 结构体，与一个高权限文件（如 /etc/passwd）的 file 结构体进行交换。当进程写入时，内核会在原始（低权限）文件上检查权限，但实际的写入操作却发生在了被换入的（高权限）文件上。</li>
+</ol>
+</li>
+<li><strong>重要性</strong>：DirtyCred 之所以强大，是因为它是一种纯数据攻击。它不需要劫持指令指针，因此可以完全绕过 KASLR、SMEP 和 CFI 等防御措施。只要存在一个合适的 UAF 漏洞，它几乎与内核版本无关 3。</li>
+</ul>
+<h3><strong>D. 技术三（案例研究）- Dirty Pipe (CVE-2022-0847)：间接提权</strong></h3>
+<p>虽然 Dirty Pipe 不直接操纵 cred，但它对于本讨论至关重要，因为其最终目标是创建一个拥有 root 凭证的新进程，展示了通往同一结果的另一条路径。</p>
+<ul>
+<li><strong>机制</strong>：这是一个逻辑错误，而非内存损坏漏洞。它允许一个拥有文件读取权限的用户，通过滥用 pipe 和 splice 系统调用以及页面标志 PIPE_BUF_FLAG_CAN_MERGE 处理上的一个缺陷，来覆写该文件的内容。</li>
+<li><strong>利用路径</strong>：
+<ol>
+<li><strong>覆写 /etc/passwd</strong>：攻击者可以覆写 root 用户的条目，移除其密码哈希，从而允许他们无需密码即可 su 到 root。</li>
+<li><strong>覆写 SUID 二进制文件</strong>：攻击者可以获取一个受信任的 SUID 二进制文件（如 /usr/bin/su），它以 root 权限运行，然后将其代码覆写为能够生成 root shell 的载荷。当任何用户运行这个已被篡改的 SUID 程序时，他们就会得到一个 root shell，这是一个拥有 root cred 的新进程。</li>
+<li><strong>覆写 SSH 密钥或 cron 作业</strong>：其他路径包括覆写 /root/.ssh/authorized_keys 以允许作为 root 用户进行 SSH 登录。</li>
+</ol>
+</li>
+</ul>
+<h3><strong>E. 综合攻击链（案例研究）- <a title="CVE-2023-3390" data-hovercard-type="advisory" data-hovercard-url="/advisories/GHSA-vj8j-762w-6jmv/hovercard" href="https://github.com/advisories/GHSA-vj8j-762w-6jmv">CVE-2023-3390</a></strong></h3>
+<p>本节将通过一个完整的、现代的内核漏洞利用过程，来综合展示上述所有概念。</p>
+<ol>
+<li><strong>触发漏洞</strong>：分析 Netfilter (nftables) 子系统中的 UAF 漏洞，该漏洞可用于创建一个悬垂指针。</li>
+<li><strong>堆整理与对象操纵</strong>：攻击者精心分配和释放对象（通常使用 msg_msg 或其他“弹性对象”）来控制堆布局，确保一个受控对象能够占据被释放的易受攻击对象的槽位。这一阶段对漏洞利用的稳定性至关重要。</li>
+<li><strong>KASLR 泄露</strong>：利用 UAF 造成信息泄露。通过将一个被回收对象中的指针覆写为一个已知值，攻击者可以读取相邻内存，其中可能包含一个内核指针。通过减去一个已知的偏移量，他们可以计算出被随机化的内核基地址，从而击败 KASLR。</li>
+<li><strong>PC 控制与 ROP 链</strong>：在 KASLR 被绕过后，攻击者便知晓了 ROP 小工具和关键函数的地址。他们再次利用 UAF，这次是为了覆写一个被回收对象中的函数指针。当内核调用这个函数指针时，执行流就被劫持到了攻击者的 ROP 链。</li>
+<li><strong>终局之战 - commit_creds</strong>：ROP 链的唯一目的就是执行 commit_creds(prepare_kernel_cred(&amp;init_task))，从而赋予当前进程 root 权限。</li>
+<li><strong>后利用与清理</strong>：漏洞利用成功后，通常会脱离任何容器命名空间（使用 setns），并在宿主机上生成一个 /bin/bash shell。</li>
+</ol>
+<p><strong>表 3：针对 cred 的漏洞利用技术对比</strong></p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th align="left">技术</th>
+<th align="left">前提漏洞</th>
+<th align="left">核心机制</th>
+<th align="left">可绕过的缓解措施</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><strong>直接 cred 覆写</strong></td>
+<td align="left">任意内核写</td>
+<td align="left">找到 current-&gt;cred 并将其 UID/GID 字段覆写为 0。</td>
+<td align="left">本身无法绕过。需要信息泄露来绕过 KASLR。</td>
+</tr>
+<tr>
+<td align="left"><strong>ROP 调用 commit_creds</strong></td>
+<td align="left">栈溢出 / UAF / 类型混淆，导致 PC 控制</td>
+<td align="left">链接内核代码片段（小工具）来调用 commit_creds(prepare_kernel_cred(0))。</td>
+<td align="left">绕过 NX/DEP。需要信息泄露来绕过 KASLR。可被强 CFI 阻止。</td>
+</tr>
+<tr>
+<td align="left"><strong>DirtyCred</strong></td>
+<td align="left">UAF / 双重释放</td>
+<td align="left">通过堆操纵，将一个低权限的 cred 或 file 结构体与一个高权限的结构体交换。</td>
+<td align="left">绕过 KASLR、SMEP/SMAP 和 CFI，因为它是一种纯数据攻击。</td>
+</tr>
+<tr>
+<td align="left"><strong>Dirty Pipe (间接)</strong></td>
+<td align="left">逻辑缺陷 (CVE-2022-0847)</td>
+<td align="left">覆写一个只读文件（如 SUID 程序、/etc/passwd）来创建一个新的 root 权限进程。</td>
+<td align="left">不是内存损坏攻击，因此绕过内存安全缓解措施。</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<h2><strong>五. 内核的防御：保护 cred 的军备竞赛</strong></h2>
+<h3><strong>A. 混淆目标：内核地址空间布局随机化 (KASLR)</strong></h3>
+<ul>
+<li><strong>机制</strong>：KASLR 在系统启动时随机化内核代码、模块、栈和堆的基地址 4。</li>
+<li><strong>防护目标</strong>：这可以阻止攻击者使用硬编码的地址来定位 ROP 小工具或 commit_creds 等函数。攻击者必须首先找到一个信息泄露漏洞来击败 KASLR。</li>
+<li><strong>绕过</strong>：正如在 <a title="CVE-2023-3390" data-hovercard-type="advisory" data-hovercard-url="/advisories/GHSA-vj8j-762w-6jmv/hovercard" href="https://github.com/advisories/GHSA-vj8j-762w-6jmv">CVE-2023-3390</a> 的分析中所见，攻击者会主动寻找信息泄露点来计算内核基地址，从而使 KASLR 失效。</li>
+</ul>
+<h3><strong>B. 强制边界：SMEP 与 SMAP</strong></h3>
+<ul>
+<li><strong>监管模式执行保护 (SMEP)</strong>：一项 CPU 特性，可阻止内核（ring 0）执行位于用户空间页面中的代码。它通过 CR4 寄存器中的一个比特位启用。任何此类尝试都会导致页面错误 5。</li>
+<li><strong>防护目标</strong>：SMEP 扼杀了最简单的内核利用形式：将执行流重定向到放置在用户内存中的 Shellcode。它迫使攻击者使用更复杂的、只利用现有合法内核代码的 ROP 技术。</li>
+<li><strong>监管模式访问保护 (SMAP)</strong>：一项与 SMEP 互补的 CPU 特性，可阻止内核任意读写用户空间内存 6。合法的访问必须被显式地包装在临时禁用该保护的指令（<br>
+stac/clac）中。</li>
+<li><strong>防护目标</strong>：SMAP 使攻击者更难使用存储在用户内存中的载荷，并能防止许多内核被欺骗读取用户空间恶意数据结构的漏洞。</li>
+</ul>
+<h3><strong>C. 内核加固的演进格局</strong></h3>
+<ul>
+<li><strong>内核页表隔离 (KPTI)</strong>：一项针对 Meltdown 和旨在破解 KASLR 的旁道攻击的主要防御措施。它将内核从用户空间的页表中大部分解映射，使得探测内核地址变得极为困难。</li>
+<li><strong>控制流完整性 (CFI)</strong>：一类旨在通过确保间接调用和跳转只能到达合法的、预期的目的地，来防止 ROP 和其他控制流劫持的缓解措施。这直接对抗了基于 ROP 的 commit_creds 攻击。</li>
+<li><strong>面向数据的防御</strong>：DirtyCred 的兴起表明，仅保护控制流是不足够的。新的研究开始关注隔离关键数据结构。这包括将特权对象和非特权对象分离到不同的堆缓存中，使得基于 UAF 的交换变得不可能。</li>
+</ul>
+<p>攻防双方之间存在一场清晰的、不断升级的军备竞赛。内核开发者引入的每一层新防御，都直接导致了攻击者方法的转变，催生出更复杂、更隐蔽的利用技术。这个演进过程清晰地展示了一条因果链：</p>
+<ol>
+<li><strong>问题</strong>：攻击者将 Shellcode 放入栈中并跳转执行。</li>
+<li><strong>防御</strong>：NX/DEP 将栈标记为不可执行。</li>
+<li><strong>攻击者创新</strong>：攻击者转而将执行流重定向到用户空间内存。</li>
+<li><strong>防御</strong>：SMEP 阻止内核执行用户空间内存。</li>
+<li><strong>攻击者创新</strong>：ROP 技术被开发出来，仅使用现有内核代码，绕过 SMEP。</li>
+<li><strong>防御</strong>：KASLR 随机化 ROP 小工具和内核函数的地址。</li>
+<li><strong>攻击者创新</strong>：漏洞利用变为两阶段：首先找到信息泄露点绕过 KASLR，然后使用 ROP。</li>
+<li><strong>防御</strong>：KPTI 和其他加固措施使信息泄露更加困难。</li>
+<li><strong>攻击者创新</strong>：纯数据攻击如 DirtyCred 和 Dirty Pipe 出现，它们<em>完全绕过了控制流劫持的范式</em>。它们不关心 KASLR 或 SMEP，因为它们从不劫持执行流。</li>
+<li><strong>下一代防御</strong>：现在的焦点必须转向数据完整性和对象隔离，保护 cred 和其他结构体免遭损坏或交换，而不仅仅是保护指令指针。</li>
+</ol>
+<h2><strong>六. 结论与战略建议</strong></h2>
+<p>本报告详尽地阐述了 struct cred 作为 Linux 内核中进程权限的最终体现，其中心化的设计使其成为高效的访问控制工具，同时也沦为攻击者的首要目标。我们追溯了漏洞利用技术从直接内存覆写到复杂的 ROP 链，再到颠覆性的纯数据攻击（如 DirtyCred 和 Dirty Pipe）的演变。这种演变是与内核防御措施（如 KASLR 和 SMEP/SMAP）的平行发展直接对应的。</p>
+<p>根本的冲突在于，像操作系统内核这样的安全关键组件，却使用了内存不安全的语言（C）来编写。像 UAF 这样的漏洞是所有后续 cred 操纵得以实现的根源。</p>
+<h3><strong>对系统管理员的建议</strong></h3>
+<ul>
+<li><strong>及时修补</strong>：这是最关键的防御措施。像 Dirty Pipe 和 <a title="CVE-2023-3390" data-hovercard-type="advisory" data-hovercard-url="/advisories/GHSA-vj8j-762w-6jmv/hovercard" href="https://github.com/advisories/GHSA-vj8j-762w-6jmv">CVE-2023-3390</a> 这样的漏洞在较新的内核版本中都已被修复。应用更新是无可商量的。</li>
+<li><strong>利用容器安全特性</strong>：使用如 seccomp 和 AppArmor 这样的安全配置文件。例如，Docker 的默认 seccomp 配置文件就阻止了 fsconfig 系统调用，这本可以阻止 <a title="CVE-2021-4154" data-hovercard-type="advisory" data-hovercard-url="/advisories/GHSA-qvm5-4fh7-hcfx/hovercard" href="https://github.com/advisories/GHSA-qvm5-4fh7-hcfx">CVE-2021-4154</a> 漏洞的触发。</li>
+<li><strong>遵循最小权限原则</strong>：在容器中以非 root 用户运行服务，并移除所有不必要的能力。这为攻击者增加了必须绕过的另一层障碍。</li>
+</ul>
+<h3><strong>对开发者与安全研究人员的建议</strong></h3>
+<ul>
+<li><strong>安全编码</strong>：对内存管理，特别是对象生命周期，保持高度警惕，以防止 UAF 和其他内存损坏漏洞。</li>
+<li><strong>未来防御方向</strong>：纯数据攻击的兴起表明，未来的研究必须聚焦于数据完整性和内存安全。这包括探索内存标记硬件、更安全的内存分配器，以及在内核中逐步采用像 Rust 这样的内存安全语言。</li>
+<li><strong>全局视野</strong>：安全不能被视为单一的功能，它是一场持续的军备竞赛。理解攻击者的视角——他们的最终目标通常是操纵 cred——是构建更具弹性的系统的关键。</li>
+</ul>
+<h4><strong>引用的著作</strong></h4>
+<ol>
+<li>Credentials in Linux — The Linux Kernel documentation, 访问时间为 六月 23, 2025， <a href="https://www.kernel.org/doc/html/v5.9/security/credentials.html" rel="nofollow">https://www.kernel.org/doc/html/v5.9/security/credentials.html</a></li>
+<li>Linux capabilities 101 - Linux Audit, 访问时间为 六月 23, 2025， <a href="https://linux-audit.com/kernel/capabilities/linux-capabilities-101/" rel="nofollow">https://linux-audit.com/kernel/capabilities/linux-capabilities-101/</a></li>
+<li>What is DirtyCred and how can it be mitigated? | CrowdStrike, 访问时间为 六月 23, 2025， <a href="https://www.crowdstrike.com/en-us/blog/what-is-the-dirtycred-exploit-technique/" rel="nofollow">https://www.crowdstrike.com/en-us/blog/what-is-the-dirtycred-exploit-technique/</a></li>
+<li>Kernel Self-Protection — The Linux Kernel documentation, 访问时间为 六月 23, 2025， <a href="https://www.kernel.org/doc/html/v6.5/security/self-protection.html?highlight=kaslr" rel="nofollow">https://www.kernel.org/doc/html/v6.5/security/self-protection.html?highlight=kaslr</a></li>
+<li>Kernel Level Protections: Supervisor Mode Execution Protection ..., 访问时间为 六月 23, 2025， <a href="https://www.seandeaton.com/smep/" rel="nofollow">https://www.seandeaton.com/smep/</a></li>
+<li>Supervisor Mode Access Prevention - Wikipedia, 访问时间为 六月 23, 2025， <a href="https://en.wikipedia.org/wiki/Supervisor_Mode_Access_Prevention" rel="nofollow">https://en.wikipedia.org/wiki/Supervisor_Mode_Access_Prevention</a></li>
+</ol></div>
+<div style="font-size:small;margin-top:8px;float:right;"></div>
+
+<button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
+<div class="comments" id="comments"></div>
+
+</div>
+    <div id="footer"><div id="footer1">Copyright © <span id="copyrightYear"></span> <a href="https://Mon3t4r.github.io">自由贩卖机</a></div>
+<div id="footer2">
+    <span id="runday"></span><span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a></span>
+</div>
+
+<script>
+var now=new Date();
+document.getElementById("copyrightYear").innerHTML=now.getFullYear();
+
+if(""!=""){
+    var startSite=new Date("");
+    var diff=now.getTime()-startSite.getTime();
+    var diffDay=Math.floor(diff/(1000*60*60*24));
+    document.getElementById("runday").innerHTML="网站运行"+diffDay+"天"+" • ";
+}
+</script></div>
+</body>
+<script>
+var IconList={'sun': 'M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 12a4 4 0 100-8 4 4 0 000 8zM8 0a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V.75A.75.75 0 018 0zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 13zM2.343 2.343a.75.75 0 011.061 0l1.06 1.061a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm9.193 9.193a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.061l-1.061-1.06a.75.75 0 010-1.061zM16 8a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0116 8zM3 8a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5h1.5A.75.75 0 013 8zm10.657-5.657a.75.75 0 010 1.061l-1.061 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm-9.193 9.193a.75.75 0 010 1.06l-1.06 1.061a.75.75 0 11-1.061-1.06l1.06-1.061a.75.75 0 011.061 0z', 'moon': 'M9.598 1.591a.75.75 0 01.785-.175 7 7 0 11-8.967 8.967.75.75 0 01.961-.96 5.5 5.5 0 007.046-7.046.75.75 0 01.175-.786zm1.616 1.945a7 7 0 01-7.678 7.678 5.5 5.5 0 107.678-7.678z', 'sync': 'M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z', 'home': 'M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z', 'github': 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z'};
+var utterancesLoad=0;
+
+let themeSettings={
+    "dark": ["dark","moon","#00f0ff","dark-blue"],
+    "light": ["light","sun","#ff5000","github-light"],
+    "auto": ["auto","sync","","preferred-color-scheme"]
+};
+function changeTheme(mode, icon, color, utheme){
+    document.documentElement.setAttribute("data-color-mode",mode);
+    document.getElementById("themeSwitch").setAttribute("d",value=IconList[icon]);
+    document.getElementById("themeSwitch").parentNode.style.color=color;
+    if(utterancesLoad==1){utterancesTheme(utheme);}
+}
+function modeSwitch(){
+    let currentMode=document.documentElement.getAttribute('data-color-mode');
+    let newMode = currentMode === "light" ? "dark" : currentMode === "dark" ? "auto" : "light";
+    localStorage.setItem("meek_theme", newMode);
+    if(themeSettings[newMode]){
+        changeTheme(...themeSettings[newMode]);
+    }
+}
+function utterancesTheme(theme){
+    const message={type:'set-theme',theme: theme};
+    const iframe=document.getElementsByClassName('utterances-frame')[0];
+    iframe.contentWindow.postMessage(message,'https://utteranc.es');
+}
+if(themeSettings[theme]){changeTheme(...themeSettings[theme]);}
+console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 0;background:#02d81d;color:#fff");
+</script>
+
+<script>
+document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
+
+function openComments(){
+    cm=document.getElementById("comments");
+    cmButton=document.getElementById("cmButton");
+    cmButton.innerHTML="loading";
+    span=document.createElement("span");
+    span.setAttribute("class","AnimatedEllipsis");
+    cmButton.appendChild(span);
+
+    script=document.createElement("script");
+    script.setAttribute("src","https://utteranc.es/client.js");
+    script.setAttribute("repo","Mon3t4r/Mon3t4r.github.io");
+    script.setAttribute("issue-term","title");
+    
+    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
+    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
+    else{script.setAttribute("theme","preferred-color-scheme");}
+    
+    script.setAttribute("crossorigin","anonymous");
+    script.setAttribute("async","");
+    cm.appendChild(script);
+
+    int=self.setInterval("iFrameLoading()",200);
+}
+
+function iFrameLoading(){
+    var utterances=document.getElementsByClassName('utterances');
+    if(utterances.length==1){
+        if(utterances[0].style.height!=""){
+            utterancesLoad=1;
+            int=window.clearInterval(int);
+            document.getElementById("cmButton").style.display="none";
+            console.log("utterances Load OK");
+        }
+    }
+}
+
+
+
+</script>
+
+
+</html>
