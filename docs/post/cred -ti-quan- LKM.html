@@ -10,7 +10,8 @@
         let theme = localStorage.getItem("meek_theme") || "light";
         document.documentElement.setAttribute("data-color-mode", theme);
     </script>
-<meta name="description" content="安装内核头文件：
+<meta name="description" content="测试环境  6.6.0-38-generic ARM 架构
+安装内核头文件：
 
 ```Bash
 
@@ -38,7 +39,8 @@ dmesg -T | grep ko_cred_tamper # 查看内核模块日志
 - 初始化函数 ko_cred_tamper_init 执行
     - 在 /proc 文件系统下创建文件 elevate_shell（权限 0666，所有用户可读写）。">
 <meta property="og:title" content="cred 提权 LKM">
-<meta property="og:description" content="安装内核头文件：
+<meta property="og:description" content="测试环境  6.6.0-38-generic ARM 架构
+安装内核头文件：
 
 ```Bash
 
@@ -135,7 +137,8 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 </div>
 </div>
     <div id="content">
-<div class="markdown-body" id="postBody"><p>安装内核头文件：</p>
+<div class="markdown-body" id="postBody"><p>测试环境  6.6.0-38-generic ARM 架构<br>
+安装内核头文件：</p>
 <div class="highlight highlight-source-shell"><pre class="notranslate">sudo apt update
 sudo apt install linux-headers-<span class="pl-s"><span class="pl-pds">$(</span>uname -r<span class="pl-pds">)</span></span>
 
