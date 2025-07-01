@@ -1,5 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>自由贩卖机</title><link>https://Mon3t4r.github.io</link><description>Noting Right，Noting Left</description><copyright>自由贩卖机</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/98069164?v=4</url><title>avatar</title><link>https://Mon3t4r.github.io</link></image><lastBuildDate>Thu, 26 Jun 2025 06:29:27 +0000</lastBuildDate><managingEditor>自由贩卖机</managingEditor><ttl>60</ttl><webMaster>自由贩卖机</webMaster><item><title>SMAP/SMEP/KPTI 防护机制分析</title><link>https://Mon3t4r.github.io/post/SMAP-SMEP-KPTI%20-fang-hu-ji-zhi-fen-xi.html</link><description>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>自由贩卖机</title><link>https://Mon3t4r.github.io</link><description>Noting Right，Noting Left</description><copyright>自由贩卖机</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/98069164?v=4</url><title>avatar</title><link>https://Mon3t4r.github.io</link></image><lastBuildDate>Tue, 01 Jul 2025 08:28:52 +0000</lastBuildDate><managingEditor>自由贩卖机</managingEditor><ttl>60</ttl><webMaster>自由贩卖机</webMaster><item><title>利用eBPF进行内核级威胁检测：权限提升漏洞与缓解策略分析</title><link>https://Mon3t4r.github.io/post/li-yong-eBPF-jin-xing-nei-he-ji-wei-xie-jian-ce-%EF%BC%9A-quan-xian-ti-sheng-lou-dong-yu-huan-jie-ce-lve-fen-xi.html</link><description>
+
+# **利用eBPF进行内核级威胁检测：权限提升漏洞与缓解策略分析**
+
+**执行摘要**
+
+eBPF（扩展伯克利数据包过滤器）技术代表了内核安全领域的一次范式转换，为操作系统提供了前所未有的可观测性和强制执行能力。</description><guid isPermaLink="true">https://Mon3t4r.github.io/post/li-yong-eBPF-jin-xing-nei-he-ji-wei-xie-jian-ce-%EF%BC%9A-quan-xian-ti-sheng-lou-dong-yu-huan-jie-ce-lve-fen-xi.html</guid><pubDate>Tue, 01 Jul 2025 08:28:27 +0000</pubDate></item><item><title>SMAP/SMEP/KPTI 防护机制分析</title><link>https://Mon3t4r.github.io/post/SMAP-SMEP-KPTI%20-fang-hu-ji-zhi-fen-xi.html</link><description>
 
 # **深度剖析：现代内核防护技术巡礼 \- SMEP、SMAP 与 KPTI**
 
