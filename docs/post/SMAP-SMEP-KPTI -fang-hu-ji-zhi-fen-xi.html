@@ -94,7 +94,7 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 <h3><strong>权限分离：操作系统安全的基石</strong></h3>
 <p>现代操作系统的设计核心在于一个基本原则：权限分离。系统内存被划分为两个截然不同的权限域：受到严格限制的<strong>用户空间</strong>（user space）和拥有至高无上权限的<strong>内核空间</strong>（kernel space）1。用户应用程序在用户空间运行，其访问系统资源的能力受到严格控制。当它们需要执行特权操作时，例如读写文件或发送网络数据包，必须通过一个名为</p>
 <p><strong>系统调用</strong>（system call）的正式、受控的接口向内核发出请求 1。</p>
-<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/831ca241-e4cf-4dfe-aa2a-3d2674122d18"><img src="https://github.com/user-attachments/assets/831ca241-e4cf-4dfe-aa2a-3d2674122d18" alt="Image" style="max-width: 100%;"></a></p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/831ca241-e4cf-4dfe-aa2a-3d2674122d18"><img src="https://github.com/user-attachments/assets/831ca241-e4cf-4dfe-aa2a-3d2674122d18" alt="Image" style="max-width: 100%; height: auto;"></a></p>
 <p>这种划分并非随意的设计选择，而是出于几个至关重要的原因：</p>
 <ul>
 <li><strong>稳定性和鲁棒性</strong>：通过将用户程序与核心的操作系统隔离开来，可以确保一个行为异常或崩溃的应用程序不会拖垮整个系统。这与早期缺乏此类保护的操作系统（如 MS-DOS）形成了鲜明对比，在那些系统中，任何一个程序的错误都可能导致整个系统崩溃 3。</li>
