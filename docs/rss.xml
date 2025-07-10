@@ -1,5 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>自由贩卖机</title><link>https://Mon3t4r.github.io</link><description>Noting Right，Noting Left</description><copyright>自由贩卖机</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/98069164?v=4</url><title>avatar</title><link>https://Mon3t4r.github.io</link></image><lastBuildDate>Tue, 01 Jul 2025 10:11:01 +0000</lastBuildDate><managingEditor>自由贩卖机</managingEditor><ttl>60</ttl><webMaster>自由贩卖机</webMaster><item><title>《BUDAlloc：通过解耦内核与虚拟地址管理来防御“释放后使用”漏洞》AI解读</title><link>https://Mon3t4r.github.io/post/%E3%80%8ABUDAlloc%EF%BC%9A-tong-guo-jie-ou-nei-he-yu-xu-ni-di-zhi-guan-li-lai-fang-yu-%E2%80%9C-shi-fang-hou-shi-yong-%E2%80%9D-lou-dong-%E3%80%8BAI-jie-du.html</link><description># **BUDAlloc 中文解读**
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>自由贩卖机</title><link>https://Mon3t4r.github.io</link><description>Noting Right，Noting Left</description><copyright>自由贩卖机</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/98069164?v=4</url><title>avatar</title><link>https://Mon3t4r.github.io</link></image><lastBuildDate>Thu, 10 Jul 2025 11:59:24 +0000</lastBuildDate><managingEditor>自由贩卖机</managingEditor><ttl>60</ttl><webMaster>自由贩卖机</webMaster><item><title>针对ARM架构的Linux内核页表隔离（KPTI）机制解析</title><link>https://Mon3t4r.github.io/post/zhen-dui-ARM-jia-gou-de-Linux-nei-he-ye-biao-ge-li-%EF%BC%88KPTI%EF%BC%89-ji-zhi-jie-xi.html</link><description>
+
+
+
+## **第1章：隔离的必要性：瞬态执行与“熔断”漏洞**
+
+现代高性能处理器的设计核心在于追求极致的指令吞吐率和执行效率。</description><guid isPermaLink="true">https://Mon3t4r.github.io/post/zhen-dui-ARM-jia-gou-de-Linux-nei-he-ye-biao-ge-li-%EF%BC%88KPTI%EF%BC%89-ji-zhi-jie-xi.html</guid><pubDate>Thu, 10 Jul 2025 11:58:58 +0000</pubDate></item><item><title>《BUDAlloc：通过解耦内核与虚拟地址管理来防御“释放后使用”漏洞》AI解读</title><link>https://Mon3t4r.github.io/post/%E3%80%8ABUDAlloc%EF%BC%9A-tong-guo-jie-ou-nei-he-yu-xu-ni-di-zhi-guan-li-lai-fang-yu-%E2%80%9C-shi-fang-hou-shi-yong-%E2%80%9D-lou-dong-%E3%80%8BAI-jie-du.html</link><description># **BUDAlloc 中文解读**
 
 **《BUDAlloc：通过解耦内核与虚拟地址管理来防御“释放后使用”漏洞》**
 
