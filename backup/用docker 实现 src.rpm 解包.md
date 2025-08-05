@@ -6,35 +6,7 @@
 # 使用官方的 Fedora 镜像作为基础
 FROM fedora:latest
 
-# 步骤 1: 更新系统并安装 dnf5 的 group 命令插件
-RUN dnf -y upgrade --refresh && \
-    dnf -y install 'dnf5-command(group)'
-
-# 步骤 2: 使用正确的组ID "development-tools" 来安装开发工具集
-RUN dnf -y group install "development-tools"
-
-# 步骤 3: 安装其他非常常见的开发库和工具
-RUN dnf -y install \
-      cmake \
-      openssl-devel \
-      zlib-devel \
-      pcre-devel \
-      pcre2-devel \
-      libcurl-devel \
-      libxml2-devel \
-      apr-devel \
-      apr-util-devel \
-      systemd-devel \
-      lua-devel \
-      brotli-devel \
-      jansson-devel \
-      libselinux-devel \
-      perl-generators && \
-    # 清理缓存，减小最终镜像的体积
-    dnf clean all
-
-# 设置一个环境变量，方便以后查看镜像版本
-ENV FEDORA_TOOLS_VERSION="2025-08-05"
+RUN  dnf install -y rpm-build findutils xmlto perl && dnf clean all
 ```
 然后用docker 来构建
 ```
