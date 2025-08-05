@@ -88,7 +88,31 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 <pre class="notranslate"><code class="notranslate"># 使用官方的 Fedora 镜像作为基础
 FROM fedora:latest
 
-RUN dnf install -y rpm-build findutils xmlto &amp;&amp; dnf clean all
+# 更新系统并安装 "Development Tools" 软件包组
+# 这个组包含了 gcc, g++, make, git, autoconf, automake, rpm-build, perl, xmlto 等核心开发工具
+# 使用 dnf -y groupinstall 可以一次性装好一个完整的工具集
+RUN dnf -y upgrade --refresh &amp;&amp; \
+    dnf -y groupinstall "Development Tools"
+
+# 安装其他常见的开发库和工具
+RUN dnf -y install \
+      cmake \
+      openssl-devel \
+      zlib-devel \
+      pcre-devel \
+      pcre2-devel \
+      libcurl-devel \
+      libxml2-devel \
+      apr-devel \
+      apr-util-devel \
+      systemd-devel \
+      lua-devel \
+      brotli-devel \
+      jansson-devel \
+      libselinux-devel \
+      perl-generators &amp;&amp; \
+    # 清理缓存，减小最终镜像的体积
+    dnf clean all
 
 </code></pre>
 <p>然后用docker 来构建</p>
